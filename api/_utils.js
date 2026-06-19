@@ -60,7 +60,6 @@ function fetchWithHeaders(targetUrl, customHeaders = {}) {
 function rewriteM3U8(m3u8Content, baseUrl) {
     const base = new URL(baseUrl);
     const baseOrigin = base.origin;
-    // On Vercel, the host is dynamic, so we just use relative path /api/segment
     const proxyBase = '';
     
     const lines = m3u8Content.split('\n');
@@ -94,68 +93,21 @@ function rewriteM3U8(m3u8Content, baseUrl) {
     return rewritten.join('\n');
 }
 
-module.exports = async (req, res) => {
+function setCorsHeaders(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
     res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
     
     if (req.method === 'OPTIONS') {
         res.status(200).end();
-        return;
+        return true;
     }
-    
-    // In Vercel, req.url might just be the path without host
-    // We construct a fake URL object to easily parse query parameters
-    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
-    
-    if (parsedUrl.pathname === '/api/stream') {
-        const streamUrl = parsedUrl.searchParams.get('url');
-        if (!streamUrl) {
-            res.status(400).send('Missing url');
-            return;
-        }
-        
-        try {
-            const result = await fetchWithHeaders(streamUrl);
-            const m3u8Content = result.body.toString('utf8');
-            
-            if (m3u8Content.includes('#EXTM3U')) {
-                const rewritten = rewriteM3U8(m3u8Content, streamUrl);
-                res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-                res.setHeader('Content-Length', Buffer.byteLength(rewritten));
-                res.status(200).send(rewritten);
-            } else {
-                res.setHeader('Content-Type', result.headers['content-type'] || 'application/octet-stream');
-                res.status(result.status).send(result.body);
-            }
-        } catch (err) {
-            res.status(500).send(err.message);
-        }
-        return;
-    }
-    
-    if (parsedUrl.pathname === '/api/segment') {
-        const segmentUrl = parsedUrl.searchParams.get('url');
-        if (!segmentUrl) {
-            res.status(400).send('Missing url');
-            return;
-        }
-        
-        try {
-            const result = await fetchWithHeaders(segmentUrl);
-            const contentType = result.headers['content-type'] || 
-                (segmentUrl.includes('.key') ? 'application/octet-stream' : 
-                 segmentUrl.includes('.ts') ? 'video/MP2T' : 'application/octet-stream');
-            
-            res.setHeader('Content-Type', contentType);
-            res.setHeader('Content-Length', result.body.length);
-            res.status(result.status).send(result.body);
-        } catch (err) {
-            res.status(500).send(err.message);
-        }
-        return;
-    }
-    
-    res.status(404).send('Not found');
+    return false;
+}
+
+module.exports = {
+    fetchWithHeaders,
+    rewriteM3U8,
+    setCorsHeaders
 };
