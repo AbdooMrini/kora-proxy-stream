@@ -46,10 +46,33 @@
             border: none;
         }
         
-        .controls-bar {
+        .input-bar {
             display: flex;
             gap: 10px;
             margin-top: 20px;
+            width: 100%;
+        }
+        
+        .stream-input {
+            flex-grow: 1;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #2a2a3a;
+            background: #151520;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .stream-input:focus {
+            border-color: #00f260;
+        }
+
+        .controls-bar {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
             justify-content: center;
             flex-wrap: wrap;
         }
@@ -123,6 +146,10 @@
             <video id="videoPlayer" controls playsinline></video>
         </div>
         
+        <div class="input-bar">
+            <input type="text" id="streamInput" class="stream-input" placeholder="Colle ton lien .m3u8 ici..." value="https://a9.kora-plus.app/watch/max2.m3u8?token=_FClUpkKJ_E4-ft8N3W0-bQSszA&exp=1781913503">
+        </div>
+
         <div class="controls-bar">
             <button class="btn btn-play" onclick="playStream()">▶️ Play</button>
             <button class="btn btn-secondary" onclick="reloadStream()">🔄 Reload</button>
@@ -132,23 +159,29 @@
 
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script>
-        // Stream config
-        const STREAM_URL = 'https://a9.kora-plus.app/watch/max2.m3u8?token=_FClUpkKJ_E4-ft8N3W0-bQSszA&exp=1781913503';
         const PROXY_URL = '';
         
         let hls = null;
         const videoPlayer = document.getElementById('videoPlayer');
         const loadingOverlay = document.getElementById('loadingOverlay');
+        const streamInput = document.getElementById('streamInput');
         
         function playStream() {
             loadingOverlay.classList.remove('hidden');
+            
+            const currentStreamUrl = streamInput.value.trim();
+            if (!currentStreamUrl) {
+                loadingOverlay.classList.add('hidden');
+                alert("Veuillez entrer un lien m3u8 valide");
+                return;
+            }
             
             if (hls) {
                 hls.destroy();
                 hls = null;
             }
             
-            const proxyStreamUrl = `${PROXY_URL}/api/stream?url=${encodeURIComponent(STREAM_URL)}`;
+            const proxyStreamUrl = `${PROXY_URL}/api/stream?url=${encodeURIComponent(currentStreamUrl)}`;
             
             if (Hls.isSupported()) {
                 hls = new Hls({
@@ -165,10 +198,13 @@
                 
                 hls.on(Hls.Events.ERROR, (event, data) => {
                     if (data.fatal) {
+                        loadingOverlay.classList.add('hidden');
                         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                            hls.startLoad();
+                            alert("Network error: The stream token may have expired or the link is broken.");
                         } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                             hls.recoverMediaError();
+                        } else {
+                            alert("An error occurred: " + data.type);
                         }
                     }
                 });
