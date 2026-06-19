@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            color: #fff;
+            font-family: system-ui, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .player-container {
+            width: 100%;
+            max-width: 1000px;
+        }
+        
+        .player-wrapper {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        #videoPlayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .controls-bar {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-play {
+            background: #00f260;
+            color: #000;
+        }
+        
+        .btn-play:hover {
+            background: #00d254;
+        }
+        
+        .btn-secondary {
+            background: #2a2a3a;
+        }
+        
+        .btn-secondary:hover {
+            background: #3a3a4a;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #2a2a3a;
+            border-top-color: #00f260;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="player-container">
+        <div class="player-wrapper" id="playerWrapper">
+            <div class="loading-overlay hidden" id="loadingOverlay">
+                <div class="loading-spinner"></div>
+            </div>
+            <video id="videoPlayer" controls playsinline></video>
+        </div>
+        
+        <div class="controls-bar">
+            <button class="btn btn-play" onclick="playStream()">▶️ Play</button>
+            <button class="btn btn-secondary" onclick="reloadStream()">🔄 Reload</button>
+            <button class="btn btn-secondary" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        // Stream config
+        const STREAM_URL = 'https://a9.kora-plus.app/watch/max2.m3u8?token=_FClUpkKJ_E4-ft8N3W0-bQSszA&exp=1781913503';
+        const PROXY_URL = '';
+        
+        let hls = null;
+        const videoPlayer = document.getElementById('videoPlayer');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        
+        function playStream() {
+            loadingOverlay.classList.remove('hidden');
+            
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+            
+            const proxyStreamUrl = `${PROXY_URL}/api/stream?url=${encodeURIComponent(STREAM_URL)}`;
+            
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    debug: false,
+                    enableWorker: false,
+                    manifestLoadingTimeOut: 15000,
+                    fragLoadingTimeOut: 15000,
+                });
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    loadingOverlay.classList.add('hidden');
+                    videoPlayer.play();
+                });
+                
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                            hls.startLoad();
+                        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                            hls.recoverMediaError();
+                        }
+                    }
+                });
+                
+                hls.loadSource(proxyStreamUrl);
+                hls.attachMedia(videoPlayer);
+                
+            } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                // Safari native HLS
+                videoPlayer.src = proxyStreamUrl;
+                videoPlayer.addEventListener('loadedmetadata', () => {
+                    loadingOverlay.classList.add('hidden');
+                    videoPlayer.play();
+                });
+            } else {
+                loadingOverlay.classList.add('hidden');
+                alert("HLS not supported in this browser");
+            }
+        }
+        
+        function reloadStream() {
+            playStream();
+        }
+        
+        function toggleFullscreen() {
+            const wrapper = document.getElementById('playerWrapper');
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                wrapper.requestFullscreen();
+            }
+        }
+        
+        // Auto-play on load
+        window.addEventListener('load', () => {
+            setTimeout(playStream, 1000);
+        });
+    </script>
+</body>
+</html>
