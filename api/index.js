@@ -3,13 +3,11 @@ const https = require('https');
 const url = require('url');
 const zlib = require('zlib');
 
-const SPOOF_HEADERS = {
+const BASE_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1',
     'Accept': '*/*',
     'Accept-Language': 'en-US,en;q=0.9',
     'Accept-Encoding': 'gzip, deflate, br',
-    'Referer': 'https://a9.kora-plus.app/',
-    'Origin': 'https://a9.kora-plus.app',
     'Connection': 'keep-alive'
 };
 
@@ -17,13 +15,19 @@ function fetchWithHeaders(targetUrl, customHeaders = {}) {
     return new Promise((resolve, reject) => {
         const parsed = url.parse(targetUrl);
         const client = parsed.protocol === 'https:' ? https : http;
+        const dynamicOrigin = `${parsed.protocol}//${parsed.hostname}`;
         
         const options = {
             hostname: parsed.hostname,
             port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
             path: parsed.path,
             method: 'GET',
-            headers: { ...SPOOF_HEADERS, ...customHeaders },
+            headers: { 
+                ...BASE_HEADERS, 
+                'Origin': dynamicOrigin,
+                'Referer': dynamicOrigin + '/',
+                ...customHeaders 
+            },
             rejectUnauthorized: false,
             timeout: 15000
         };
