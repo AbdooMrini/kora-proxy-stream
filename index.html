@@ -189,6 +189,9 @@
                     enableWorker: false,
                     manifestLoadingTimeOut: 15000,
                     fragLoadingTimeOut: 15000,
+                    xhrSetup: function(xhr, url) {
+                        xhr.withCredentials = true;
+                    }
                 });
                 
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
